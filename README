@@ -1,0 +1,155 @@
+# Bronze Layer Data Ingestion
+
+This repository contains the **Bronze Layer** of the data pipeline, responsible for the automated ingestion of raw data from various external sources (OLS, FTP, API, and Web) into Azure Blob Storage.
+
+## Folder Structure
+
+```text
+ska-p/bronze_layer/
+├── config/
+│   └── sources.yaml         # Central configuration for all data sources
+├── src/
+│   ├── batch_scripts/       # Scripts to manage Azure Batch (job creation/cleanup)
+│   ├── config/              # Python config loader and environment handling
+│   ├── job_manager/         # Orchestration logic for submitting Batch tasks
+│   ├── scripts/             # Specialized ingestion scripts (ols, ftp, api, web)
+│   ├── utils/               # Shared utilities for versioning and Azure operations
+│   └── test_scripts/        # Local testing and prototyping scripts
+├── Dockerfile               # Container definition for Azure Batch tasks
+├── Makefile                 # Shortcuts for building and pushing Docker images
+└── requirements.txt         # Python dependencies
+
+```
+
+## Setup and Prerequisites
+
+### Environment Variables
+
+To interact with Azure services, you must define the following variables in a `.env` file at the root of the project:
+
+* **Azure Blob Storage:**
+* `AZURE_BLOB_CONNECTION_STRING`: Primary connection string for the storage account.
+* `AZURE_BLOB_STORAGE_ACCOUNT_NAME`: The name of your storage account.
+* `AZURE_BLOB_CONTAINER_BRONZE`: The target container for raw data.
+
+
+* **Azure Batch:**
+* `AZ_BATCH_ACCOUNT_NAME`: Name of the Azure Batch account.
+* `AZ_BATCH_ACCOUNT_KEY`: Access key for the Batch account.
+* `AZ_BATCH_ACCOUNT_URL`: Service URL for the Batch account.
+
+
+* **Docker/Container Registry:**
+* `BRONZE_CONTAINER_IMAGE`: The full path to the image in ACR (e.g., `myacr.azurecr.io/bronze_layer:latest`).
+
+
+
+### Deployment
+
+1. **Build and Push:** Use the provided `Makefile` to containerize the application and push it to your Azure Container Registry (ACR).
+```bash
+make build
+make push
+
+```
+
+
+2. **Schedule Jobs:** Run `src/batch_scripts/job_create.py` to create an Azure Batch job schedule that triggers the ingestion process (P.S.: Pool needs already to exists and set up in env variables)
+**OR** follow the `Batch Setup` document.
+
+## How It Works
+
+### High-Level Logic: `job_manager.py`
+
+The `job_manager.py` script acts as the orchestrator. It:
+
+1. Loads the `sources.yaml` configuration.
+2. Iterates through every data source defined in the config.
+3. Creates a discrete **Azure Batch Task** for each source, ensuring that data ingestion happens in parallel across the Batch pool.
+4. Submits these tasks to the active Batch Job.
+
+### Configuration: `sources.yaml`
+
+The ingestion behavior is entirely driven by `config/sources.yaml`. The system supports five main types of ingestion:
+
+* **OLS (Ontology Lookup Service):** Uses the OLS API to download ontologies by their specified IDs (e.g., `doid`, `go`). It tracks versions via the OLS `versionIri`.
+* **FTP:** Connects to specified host URLs. It filters files based on `file_rules` (extensions, name patterns). If `name_contains` is empty, it downloads all files in the directory. The `root` parameter ensures correct organization within Azure Storage.
+* **API:** Performs REST calls. You can specify a `version_func` (custom logic to check for updates), a `base_url`, and an `operations` array defining the endpoint name, target filename, and query parameters.
+* **WEB:** Similar to FTP but for HTTP/HTTPS pages. It crawls pages for links and uses specialized version functions to detect if a new release is available on the web page.
+* **CUSTOM:** Dedicated Python scripts for sources with unique requirements that don't fit the standard templates (e.g., `pathway_commons.py`).
+
+More specifically, each type relies on specific keys that the `job_manager.py` and the specialized scripts in `src/scripts/` use to automate ingestion.
+
+### 1. OLS (Ontology Lookup Service)
+
+This is the simplest type to configure. It uses a list of ontology identifiers that are compatible with the public OLS API.
+
+* **How to setup:** Add a new string (ID) to the `ols` list.
+* **Example:**
+```yaml
+ols:
+  - doid
+  - new_ontology_id
+
+```
+
+
+
+### 2. FTP
+
+The FTP configuration connects to a host and uses `file_rules` to target specific data.
+
+* **host:** The FTP path (e.g., `ftp.ebi.ac.uk/...`).
+* **file_rules:** * `extensions`: List of file types to download (e.g., `[gz, parquet]`).
+* `name_contains`: Keywords to filter filenames. If left as `[]`, all files in the folder are downloaded.
+* `exclude`: (Optional) Tokens to skip specific files (e.g., `_SUCCESS`).
+* `root`: (Optional) Used to define the sub-folder structure in your Azure Storage.
+
+
+
+### 3. API
+
+The API type is used for REST services where you need to specify exact endpoints and parameters.
+
+* **version_func:** A string matching a function name in `page_utils.py` used to detect if a new version exists.
+* **base_url:** The root URL of the API.
+* **operations:** A list of specific tasks:
+* `name`: The endpoint path.
+* `filename`: The name to save the result as in Azure.
+* `params`: (Optional) Query parameters like `taxonId`.
+* `headers`: (Optional) HTTP headers (e.g., `Accept: text/gpad`).
+
+
+
+### 4. WEB
+
+This type is for scraping download links from standard HTML pages.
+
+* **version_func:** A custom function name from `page_utils.py` that parses the web page for a version string or date.
+* **pages:** A list of web pages to scrape:
+* `web_page`: The URL to visit.
+* `tag`: The HTML element to look for links (usually `a`).
+* `file_rules`: Similar to FTP, use `extensions` and `name_contains` to select links.
+* `name_contains_mode`: Set to `and` if the link must contain all keywords, or `or` for any.
+
+
+
+### 5. CUSTOM
+
+Used for sources that require unique Python logic not covered by the generic scripts.
+
+* **How to setup:**
+1. Add the source name to the `custom` list in `sources.yaml`.
+2. Create a corresponding Python script in `src/scripts/` named `{source_name}.py`.
+
+
+* **Example:** Adding `pathway_commons` to the list expects a `src/scripts/pathway_commons.py` file to exist.
+
+
+## Data Versioning
+
+The pipeline automatically manages versions in Azure Blob Storage. It checks the remote source version against a `manifest.json` stored in the container. If a newer version is found:
+
+1. The data is streamed to `raw/{source_id}/latest/`.
+2. The previous "latest" data is moved to `raw/{source_id}/releases/`.
+3. The `manifest.json` is updated with the new version and timestamp.

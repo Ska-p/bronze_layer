@@ -38,7 +38,6 @@ def load_sources_config(
     sources = document.get("sources")
     if not isinstance(sources, dict):
         raise ValueError("'sources' must be a mapping")
-
     return sources
 
 def build_command_line(group: str, source_id: str) -> str:
