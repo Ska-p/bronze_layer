@@ -1,0 +1,6 @@
+azure-storage-blob==12.19.1
+azure-batch==14.1.0
+requests==2.32.3
+beautifulsoup4==4.12.3
+pyyaml==6.0.2
+python-dotenv==1.0.1
