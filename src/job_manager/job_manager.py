@@ -75,13 +75,11 @@ def enumerate_sources(sources: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
                 raise ValueError("ols must be a list")
             for source_id in payload:
                 yield group, source_id
-
-        if group == "custom":
+        elif group == "custom":
             if not isinstance(payload, list):
                 raise ValueError("custom must be a list")
             for source_id in payload:
                 yield group, source_id
-
         else:
             if not isinstance(payload, dict):
                 raise ValueError(f"{group} must be a mapping")
