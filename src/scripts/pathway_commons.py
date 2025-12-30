@@ -18,7 +18,17 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
     
-from config.config import BLOB_CONNECTION_STRING, BRONZE_CONTAINER
+ROOT_DIR = Path(__file__).resolve().parents[2]  # bronze_layer/
+SRC_DIR = ROOT_DIR / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+    
+from env.config import BLOB_CONNECTION_STRING, BRONZE_CONTAINER
+
+from extractor import (
+    extract
+)
 
 from utils.versioning import (
     update_latest_folder,
@@ -29,6 +39,8 @@ from utils.versioning import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("API")
+
+CHUNK_SIZE = 8 * 1024 * 1024
 
 def download_latest_pc2_hgnc(
     timeout: Optional[int] = 30,
@@ -95,7 +107,7 @@ def download_latest_pc2_hgnc(
             continue
         
     date_str = best_last_modified.strftime("%Y-%m-%d") # type: ignore
-    blob_path = f"raw/bronze_layer/pathway_commons/latest/{date_str}/{TARGET_FILENAME}"
+    blob_path = f"raw/pathway_commons/latest/{date_str}/{TARGET_FILENAME}"
     
     blob_client = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
     container = blob_client.get_container_client(BRONZE_CONTAINER)
@@ -115,7 +127,7 @@ def download_latest_pc2_hgnc(
         r.raise_for_status()
 
         blob_client.upload_blob(
-            data=r.iter_content(chunk_size=1024 * 1024),
+            data=r.iter_content(chunk_size=CHUNK_SIZE),
             overwrite=True,
         )
     
@@ -138,5 +150,10 @@ def download_latest_pc2_hgnc(
         logger=logger
     )
 
+    extract(
+        source_id="pathway_commons",
+        container=container,
+        logger=logger
+    )
 if __name__=="__main__":
     download_latest_pc2_hgnc()

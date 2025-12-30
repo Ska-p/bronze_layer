@@ -5,7 +5,6 @@ import sys
 import logging
 import hashlib
 
-
 from typing import Callable, Dict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,9 +13,18 @@ from bs4 import BeautifulSoup
 
 from azure.storage.blob import BlobServiceClient
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+# =========================
+# Paths & imports
+# =========================
+
+BASE_DIR = Path(__file__).resolve().parents[1]   # /app/src
+CONFIG_PATH = BASE_DIR.parent / "config" / "sources.yaml"
+
+ROOT_DIR = Path(__file__).resolve().parents[2]  # bronze_layer/
+SRC_DIR = ROOT_DIR / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 from utils.versioning import (
     extract_version,
@@ -25,9 +33,13 @@ from utils.versioning import (
     update_latest_folder
 )
 
-from config.config import (
+from env.config import (
     BRONZE_CONTAINER,
     BLOB_CONNECTION_STRING
+)
+
+from extractor import (
+    extract
 )
 
 from utils.page_utils import (
@@ -38,15 +50,21 @@ from utils.page_utils import (
     TIGA_parse_version_from_page
 )
 
+# =========================
+# Version registry
+# =========================
+
 VERSION_FUNC_REGISTRY: Dict[str, Callable[[str, logging.Logger], str]] = {
     "HPA": HPA_parse_version_from_page,
-    "MarkerDB" : MarkerDB_parse_version_from_page,
+    "MarkerDB": MarkerDB_parse_version_from_page,
     "FooDB": FooDB_parse_version_from_page,
     "DrugCentral": DrugCentral_parse_version_from_page,
     "TIGA": TIGA_parse_version_from_page
 }
 
-CONFIG_PATH = Path("../config/sources.yaml")
+# =========================
+# Logging
+# =========================
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -55,15 +73,27 @@ logger = logging.getLogger("WEB")
 # =========================
 # Azure Blob
 # =========================
+
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
 container = blob_service.get_container_client(BRONZE_CONTAINER)
 
 # =========================
+# HTTP Session (Level-1 improvement)
+# =========================
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "bronze-layer-ingestion/1.0"
+})
+
+CHUNK_SIZE = 64 * 1024 * 1024
+
+# =========================
 # Helpers
 # =========================
+
 def matches_rules(url: str, rules: dict) -> bool:
     filename = Path(urlparse(url).path).name.lower()
-
     if not filename:
         return False
 
@@ -76,11 +106,11 @@ def matches_rules(url: str, rules: dict) -> bool:
         mode = rules.get("name_contains_mode", "or").lower()
 
         if mode == "and":
-            if not all(token in filename for token in tokens):
+            if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
                 return False
 
         elif mode == "or":
-            if not any(token in filename for token in tokens):
+            if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
                 return False
 
         else:
@@ -91,6 +121,7 @@ def matches_rules(url: str, rules: dict) -> bool:
 
     return True
 
+
 def stream_to_blob(url: str, blob_name: str) -> str:
     """
     Stream HTTP content directly into Azure Blob.
@@ -99,11 +130,11 @@ def stream_to_blob(url: str, blob_name: str) -> str:
     blob_client = container.get_blob_client(blob_name)
     sha256 = hashlib.sha256()
 
-    with requests.get(url, stream=True, timeout=300) as r:
+    with session.get(url, stream=True, timeout=300) as r:
         r.raise_for_status()
 
         def gen():
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in r.iter_content(chunk_size=CHUNK_SIZE):  # 64 KB
                 if chunk:
                     sha256.update(chunk)
                     yield chunk
@@ -124,7 +155,7 @@ def process_page(page_cfg: dict, source_id: str, version: str):
 
     logger.info("PAGE %s", page_url)
 
-    r = requests.get(page_url, timeout=60)
+    r = session.get(page_url, timeout=60)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -138,7 +169,6 @@ def process_page(page_cfg: dict, source_id: str, version: str):
             continue
 
         full_url = urljoin(page_url, href)
-        
         if not matches_rules(full_url, rules):
             continue
 
@@ -146,17 +176,17 @@ def process_page(page_cfg: dict, source_id: str, version: str):
         blob_name = f"raw/{source_id}/latest/{version}/{filename}"
 
         logger.info("↓ %s", filename)
-        file_hash = stream_to_blob(full_url, blob_name)
+        stream_to_blob(full_url, blob_name)
 
         downloaded.append(blob_name)
 
     return downloaded
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-id",
-        "--source_id",
+        "--id",
         required=True,
         help="Source id under sources.web_pages"
     )
@@ -165,16 +195,16 @@ def main():
     with open(CONFIG_PATH) as f:
         cfg = yaml.safe_load(f)
 
-    web_sources = cfg["sources"].get("web_pages", {})    
-    source_cfg = web_sources[args.source_id]
-    pages = source_cfg.get("pages", [])
-    version_func_name = source_cfg.get("version_func")
-    
-    if args.source_id not in web_sources:
+    web_sources = cfg["sources"].get("web", {})
+    if args.id not in web_sources:
         raise ValueError(
-            f"web_pages source '{args.source_id}' not found. "
+            f"web_pages source '{args.id}' not found. "
             f"Available: {list(web_sources.keys())}"
         )
+
+    source_cfg = web_sources[args.id]
+    pages = source_cfg["pages"]
+    version_func_name = source_cfg.get("version_func")
 
     if version_func_name:
         if version_func_name not in VERSION_FUNC_REGISTRY:
@@ -184,35 +214,33 @@ def main():
             )
 
         version_func = VERSION_FUNC_REGISTRY[version_func_name]
-
         version = version_func(
             source_cfg["pages"][0]["web_page"],
             logger
         )
     else:
-        version = datetime.now(timezone.utc).strftime("%Y-%m-%d")    
-        
-    stored_version = extract_version(args.source_id, container, logger)
-    if not is_newer_version(remote=version, local=stored_version):
-        logger.info("%s already up to date.", args.source_id)
-        return
-    
+        version = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    logger.info("New version detected for %s: %s", args.source_id, version)
+    stored_version = extract_version(args.id, container, logger)
+    if not is_newer_version(remote=version, local=stored_version):
+        logger.info("%s already up to date.", args.id)
+        return
+
+    logger.info("New version detected for %s: %s", args.id, version)
 
     all_files = []
 
     for page in pages:
-        files = process_page(page, args.source_id, version)
+        files = process_page(page, args.id, version)
         all_files.extend(files)
 
     if not all_files:
-        logger.warning("No files downloaded for %s", args.source_id)
+        logger.warning("No files downloaded for %s", args.id)
         return
 
     update_manifest(
         container=container,
-        source_id=args.source_id,
+        source_id=args.id,
         version=version,
         update_ts=datetime.now(timezone.utc).strftime("%Y%m%d_%H:%M:%S"),
         hosts=[p["web_page"] for p in pages],
@@ -222,10 +250,17 @@ def main():
 
     update_latest_folder(
         container=container,
-        source_id=args.source_id,
+        source_id=args.id,
         version=version,
         logger=logger
     )
-    
+
+    extract(
+        source_id=args.id,
+        container=container,
+        logger=logger
+    )
+
+
 if __name__ == "__main__":
     main()

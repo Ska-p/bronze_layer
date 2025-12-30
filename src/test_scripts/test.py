@@ -22,13 +22,15 @@ from bs4 import BeautifulSoup
 # https://unmtid-shinyapps.net/shiny/tiga/
 
 
-url = "https://download.baderlab.org/PathwayCommons/PC2/v14/"
 
+url = "https://markerdb.ca/downloads"
+url = "https://bioportal.bioontology.org/ontologies/ICD10CM?p=summary"
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar/"
 response = requests.get(url)
 html = response.text
 
 soup = BeautifulSoup(html, "html.parser")
-links = [a.get("data-prefix") for a in soup.find_all("bucket-list")]
+links = [a.get("href") for a in soup.find_all("a")]
 
 print(html)       # raw HTML text
 for link in links:

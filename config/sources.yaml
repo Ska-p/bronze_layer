@@ -14,13 +14,13 @@ sources:
     clinvar:
       - host: ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/
         file_rules:
-          extensions: [gz]
+          extensions: ["gz"]
           name_contains: ["variant_summary"]
 
     chembl:
       - host: ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/
         file_rules:
-          extensions: [h5]
+          extensions: ["h5", "gz"]
           name_contains: ["chembl",
                           "mysql", 
                           "postgresql", 
@@ -32,230 +32,234 @@ sources:
     opentarget:
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_by_datasource_direct/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_by_datasource_direct
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_by_datasource_indirect/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_by_datasource_indirect
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_by_datatype_direct/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_by_datatype_direct
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_by_datatype_indirect/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_by_datatype_indirect
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_overall_direct/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_overall_direct
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/association_overall_indirect/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: association_overall_indirect
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/biosample/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: biosample
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/colocalisation/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: colocalisation
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/credible_set/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: credible_set
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/disease/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: disease
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/disease_hpo/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: disease_hpo
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/disease_phenotype/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: disease_phenotype
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/drug_indication/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: drug_indication
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/drug_mechanism_of_action/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: drug_mechanism_of_action
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/drug_molecule/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: drug_molecule
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/drug_warning/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: drug_warning
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/enhancer_to_gene/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: enhancer_to_gene
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/evidence_chembl/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: evidence_chembl
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/evidence_reactome/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: evidence_reactome
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/expression/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: expression
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/go/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: go
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/interaction/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: interaction
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/literature/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: literature
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/mouse_phenotype/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: mouse_phenotype
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/pharmacogenomics/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: pharmacogenomics
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/reactome/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: reactome
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/study/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: study
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/target/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: target
 
       - host: ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/output/variant/
         file_rules:
-          extensions: [parquet]
+          extensions: ["parquet"]
           name_contains: []
           exclude: ["_SUCCESS", "SUCCESS"]
           root: variant
 
     chebi:
-      - host: ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/
+      - host: ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar
         file_rules:
-          extension: [dump, sql]
-          name_contains: ["pgsql"]
-      - host: ftp.ebi.ac.uk/pub/databases/chebi/ontology/
-        file_rules:
-          extension: [owl]
-          name_contains: ["chebi"]
+          extensions: ["sql.zip"]
+          name_contains: []
 
     uniprot:
-      host: https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/
-      file_rules:
-        extensions: [gz, xml]
-        name_contains: ["trembl", "sprot"]
+      - host: ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/
+        file_rules:
+          extensions: ["dat.gz"]
+          name_contains: ["trembl", "sprot"]
 
     gwascatalog:
       - host: ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/
         file_rules:
-          extensions: [zip]
+          extensions: ["zip"]
           name_contains: ["ontology-annotated-full"]
 
   api:
+
+    idc10:
+      version_func: ICD
+      base_url: https://data.bioontology.org/ontologies/ICD10CM/
+      api_key: 2498f9b7-cb35-474b-a95b-2e795af5e33a
+      operations:
+        - name: 
+
     quickgo:
       version_func: quickgo
       base_url: https://www.ebi.ac.uk/QuickGO/services/
@@ -317,7 +321,7 @@ sources:
   web:
 
     markerdb:
-      version_func: MarkerDB 
+      version_func: MarkerDB
       pages:
         - web_page: https://markerdb.ca/downloads
           tag: a
@@ -366,7 +370,7 @@ sources:
         - web_page: https://unmtid-dbs.net/download/TIGA/latest/
           tag: a
           file_rules:
-            extensions: [tsv]
+            extensions: ["tsv"]
             name_contains: [
               "gene-trait_provenance",
               "gene-trait_stats"
@@ -377,16 +381,16 @@ sources:
         - web_page: https://diseases.jensenlab.org/Downloads
           tag: a
           file_rules:
-            extensions: [tsv]
+            extensions: ["tsv"]
             name_contains: ["human_disease_knowledge_full"]
 
     drug_central:
       version_func: DrugCentral
       pages:
-        - web_page:
+        - web_page: https://drugcentral.org/ActiveDownload
           tag: a
           file_rules:
-            extension: [sql.gz]
+            extensions: ["sql.gz"]
             name_contains: ["drugcentral"]
 
     food:
@@ -411,3 +415,7 @@ sources:
     pathway_commons
   ]
  
+  bioportal: [
+    ICD10CM,
+    ICD9CM,
+  ]

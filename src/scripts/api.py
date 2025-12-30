@@ -12,17 +12,26 @@ from typing import Dict, Callable, Optional, Any
 from azure.storage.blob import BlobServiceClient
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+BASE_DIR = Path(__file__).resolve().parents[1]   # /app/src
+CONFIG_PATH = BASE_DIR.parent / "config" / "sources.yaml"
 
-from config.config import BLOB_CONNECTION_STRING, BRONZE_CONTAINER
+ROOT_DIR = Path(__file__).resolve().parents[2]  # bronze_layer/
+SRC_DIR = ROOT_DIR / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from env.config import BLOB_CONNECTION_STRING, BRONZE_CONTAINER
 
 from utils.versioning import (
     update_latest_folder,
     update_manifest,
     is_newer_version,
     extract_version
+)
+
+from extractor import (
+    extract
 )
 
 from utils.page_utils import (
@@ -32,6 +41,8 @@ from utils.page_utils import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("API")
+
+CHUNK_SIZE = 8 * 1024 * 1024
 
 VERSION_FUNC_REGISTRY: Dict[str, Callable[[logging.Logger], str]] = {
     "quickgo": QUICKGO_version,
@@ -98,7 +109,7 @@ def download_and_upload(
         resp.raise_for_status()
 
         def stream():
-            for chunk in resp.iter_content(chunk_size=8192):
+            for chunk in resp.iter_content(chunk_size=CHUNK_SIZE):
                 if chunk:
                     sha256.update(chunk)
                     yield chunk
@@ -109,7 +120,7 @@ def download_and_upload(
 
 def run_ingestion(source_id: str):
 
-    source_cfg = load_sources_config(Path("../config/sources.yaml"))[source_id]
+    source_cfg = load_sources_config(Path(CONFIG_PATH))[source_id]
 
     blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
     container = blob_service.get_container_client(BRONZE_CONTAINER)
@@ -165,6 +176,12 @@ def run_ingestion(source_id: str):
         container=container,
         source_id=source_id,
         version=version,
+        logger=logger
+    )
+    
+    extract(
+        source_id=source_id,
+        container=container,
         logger=logger
     )
 

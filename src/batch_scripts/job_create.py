@@ -13,7 +13,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.append(str(SRC_ROOT))
 
-from config.config import (
+from env.config import (
     BATCH_ACCOUNT_NAME,
     BATCH_ACCOUNT_KEY,
     BATCH_ACCOUNT_URL,

@@ -16,7 +16,7 @@ from azure.batch.batch_auth import SharedKeyCredentials
 from azure.batch import models as batch_models
 from azure.batch.custom.custom_errors import CreateTasksErrorException
 
-from config.config import (
+from env.config import (
     BATCH_ACCOUNT_KEY,
     BATCH_ACCOUNT_NAME,
     BATCH_ACCOUNT_URL,
@@ -44,7 +44,7 @@ def build_command_line(group: str, source_id: str) -> str:
     if group == "custom":
         return f"python src/scripts/{source_id}.py"
     else:
-        return f"python src/scripts/{group}.py -id {source_id}"
+        return f"python src/scripts/{group}.py --id {source_id}"
 
 def build_task(group: str, source_id: str) -> batch_models.TaskAddParameter:
     command_line = build_command_line(group, source_id)

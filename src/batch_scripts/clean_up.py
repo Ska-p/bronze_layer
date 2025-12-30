@@ -1,11 +1,17 @@
 # cleanup_jobs_in_pool.py
 
 import os
+import sys
+from pathlib import Path
 from azure.batch import BatchServiceClient
 from azure.batch.batch_auth import SharedKeyCredentials
 
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.append(str(SRC_ROOT))
+    
 # Config — adjust or load from your config module/env
-from config.config import (
+from env.config import (
     BATCH_ACCOUNT_KEY,
     BATCH_ACCOUNT_NAME,
     BATCH_ACCOUNT_URL

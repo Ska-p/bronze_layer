@@ -37,3 +37,6 @@ env/
 # IDEs (Optional but helpful)
 .vscode/
 .idea/
+
+# Cluade
+CLAUDE.md

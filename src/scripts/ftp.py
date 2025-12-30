@@ -2,46 +2,48 @@ import argparse
 import yaml
 import logging
 import sys
-import io
+import time
+import random
+import socket
 
-from ftplib import FTP
+from ftplib import FTP, error_temp
 from pathlib import Path
-from typing import List, Dict, Iterator, Any
+from typing import Dict, Any
 from datetime import datetime, timezone
-
 from azure.storage.blob import ContainerClient, BlobServiceClient
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+BASE_DIR = Path(__file__).resolve().parents[1]   # /app/src
+CONFIG_PATH = BASE_DIR.parent / "config" / "sources.yaml"
+
+ROOT_DIR = Path(__file__).resolve().parents[2]  # bronze_layer/
+SRC_DIR = ROOT_DIR / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
 logger = logging.getLogger("FTP")
 
-
-from config.config import (
+from env.config import (
     BLOB_CONNECTION_STRING,
     BRONZE_CONTAINER
 )
 
 from utils.versioning import (
-    update_manifest_latest_version_ftp_file,
-    update_ftp_folder_versioning,
-    extract_ftp_version,
+    update_manifest,
+    update_latest_folder,
+    extract_version,
     is_newer_version
 )
 
-CHUNK_SIZE = 4 * 1024 * 1024 
-
-import time
-import random
-from ftplib import FTP, error_temp
-import socket
+from extractor import (
+    extract
+)
 
 def connect_ftp(
     host: str,
-    timeout: int = 60,
+    timeout: int = 3600,  # 1 hour instead of 5 minutes
     retries: int = 5,
     base_delay: float = 2.0,
 ) -> FTP:
@@ -52,6 +54,8 @@ def connect_ftp(
             ftp = FTP()
             ftp.connect(host, timeout=timeout)
             ftp.login()  # anonymous
+            if ftp.sock is not None:
+                ftp.sock.settimeout(timeout)            
             return ftp
 
         except (ConnectionResetError, socket.timeout, error_temp) as exc:
@@ -70,48 +74,158 @@ def connect_ftp(
 
     raise RuntimeError(f"FTP connection to {host} failed after {retries} retries") from last_exc
 
+# def ftp_stream_to_blob(
+#     host: str,
+#     path: str,
+#     filename: str,
+#     container_client: ContainerClient,
+#     blob_path: str,
+# ) -> None:
+#     logger.info("Streaming FTP file %s from %s%s", filename, host, path)
+
+#     ftp = connect_ftp(host)
+#     blob_client = container_client.get_blob_client(blob_path)
+#     data_sock = None
+
+#     try:
+#         # Delete existing blob if present
+#         try:
+#             blob_client.delete_blob()
+#         except Exception:
+#             pass
+
+#         ftp.set_pasv(True)
+#         ftp.cwd(path)
+#         ftp.sendcmd("TYPE I")
+
+#         data_sock = ftp.transfercmd(f"RETR {filename}")
+#         data_sock.settimeout(300)
+
+#         # Stream and upload in blocks
+#         block_list = []
+#         block_id = 0
+        
+#         with data_sock.makefile("rb") as fp:
+#             while True:
+#                 chunk = fp.read(CHUNK_SIZE)
+#                 if not chunk:
+#                     break
+                
+#                 # Generate unique block ID (must be same length, base64-encoded)
+#                 block_id_str = f"{block_id:010d}".encode('utf-8')
+#                 block_id_b64 = base64.b64encode(block_id_str).decode('utf-8')
+                
+#                 # Stage this block
+#                 blob_client.stage_block(
+#                     block_id=block_id_b64,
+#                     data=chunk,
+#                     length=len(chunk)
+#                 )
+                
+#                 block_list.append(block_id_b64)
+#                 block_id += 1
+                
+#                 if block_id % 100 == 0:
+#                     logger.info("Uploaded %d blocks for %s", block_id, filename)
+        
+#         # Commit all blocks
+#         blob_client.commit_block_list(block_list)
+        
+#         data_sock.close()
+#         ftp.voidresp()
+
+#         logger.info("Uploaded FTP file to blob %s (%d blocks)", blob_path, len(block_list))
+
+#     finally:
+#         try:
+#             if data_sock:
+#                 data_sock.close()
+#         except Exception:
+#             pass
+
+#         try:
+#             ftp.quit()
+#         except Exception:
+#             ftp.close()
+
 def ftp_stream_to_blob(
     host: str,
     path: str,
     filename: str,
     container_client: ContainerClient,
     blob_path: str,
-    overwrite: bool = True,
 ) -> None:
     logger.info("Streaming FTP file %s from %s%s", filename, host, path)
 
-    ftp = connect_ftp(host)
-    blob_client = container_client.get_blob_client(blob=blob_path)
-
+    ftp = connect_ftp(host, timeout=3600*24)  # 1 hour timeout
+    blob_client = container_client.get_blob_client(blob_path)
+    data_sock = None
+    
     try:
+        # Delete existing blob
+        try:
+            blob_client.delete_blob()
+        except Exception:
+            pass
+
+        # Configure FTP
+        ftp.set_pasv(True)
         ftp.cwd(path)
+        
+        # Open data connection
         ftp.sendcmd("TYPE I")
-
-        class BlobWriter(io.RawIOBase):
-            def write(self, b: bytes) -> int:
-                blob_client.upload_blob(
-                    data=b,
-                    overwrite=overwrite,
-                    length=len(b),
-                    max_concurrency=1,
-                )
-                return len(b)
-
-        writer = BlobWriter()
-
-        ftp.retrbinary(
-            f"RETR {filename}",
-            callback=writer.write,
-            blocksize=CHUNK_SIZE,
-        )
-
-        logger.info("Uploaded FTP file to blob %s", blob_client.blob_name)
-
+        data_sock = ftp.transfercmd(f"RETR {filename}")
+        data_sock.settimeout(3600)  # 1 hour timeout
+        
+        logger.info("Starting upload to Azure (this may take 30+ minutes for large files)...")
+        
+        # Stream to Azure with optimized settings
+        with data_sock.makefile("rb") as fp:
+            blob_client.upload_blob(
+                data=fp,
+                overwrite=True,
+                blob_type="BlockBlob",
+                max_concurrency=4                         
+            )
+        
+        # Close data socket
+        data_sock.close()
+        data_sock = None
+        
+        # Read FTP response (may timeout, but upload succeeded)
+        # try:
+        #     ftp.voidresp()
+        #     logger.info("FTP transfer completed successfully")
+        # except (TimeoutError, OSError) as e:
+        #     logger.warning(
+        #         "FTP response timeout (upload succeeded): %s. "
+        #         "This is normal for very large files.",
+        #         e
+        #     )
+        
+        logger.info("✓ Uploaded FTP file to blob %s", blob_path)
+        ftp.quit()
+        
+    except Exception as e:
+        logger.error("Failed to stream %s: %s", filename, e)
+        raise
+        
     finally:
+        # Cleanup data socket
+        if data_sock:
+            try:
+                data_sock.close()
+            except Exception:
+                pass
+        
+        # Cleanup FTP connection
         try:
             ftp.quit()
         except Exception:
-            ftp.close()
+            try:
+                ftp.close()
+            except Exception:
+                pass
             
 def split_host_and_path(host_with_path: str) -> tuple[str, str]:
     parts = host_with_path.split("/", 1)
@@ -217,7 +331,7 @@ def run_ftp_source(source_id: str, source_cfg: Dict) -> None:
 
             detected_versions.add(version)
             
-            stored_ts = extract_ftp_version(source_id, container, logger)
+            stored_ts = extract_version(source_id, container, logger)
             if not is_newer_version(version, stored_ts):
                 logger.info("%s up to date.", filename)
                 continue
@@ -244,7 +358,7 @@ def run_ftp_source(source_id: str, source_cfg: Dict) -> None:
     # Resolve single authoritative version
     version = sorted(detected_versions)[-1]
 
-    update_manifest_latest_version_ftp_file(
+    update_manifest(
         container=container,
         source_id=source_id,
         version=version,
@@ -253,6 +367,21 @@ def run_ftp_source(source_id: str, source_cfg: Dict) -> None:
         list_of_files=all_blob_paths,
         logger=logger,
     )
+    
+    update_latest_folder(
+        container=container,
+        source_id=source_id,
+        version=version,
+        logger=logger
+    )
+    
+    extract(
+        source_id=source_id,
+        container=container,
+        logger=logger
+    )
+    
+    # Extract if file compressed
 
 def load_sources_config(config_path: Path) -> Dict[str, Dict[str, Any]]:
     if not config_path.exists():
@@ -267,14 +396,13 @@ def load_sources_config(config_path: Path) -> Dict[str, Dict[str, Any]]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run pipeline with a given identifier")
     parser.add_argument(
-        "-id",
         "--id",
         required=True,
         help="Identifier to select configuration/template"
     )
     args = parser.parse_args()
     id = args.id
-    sources = load_sources_config(Path("../config/sources.yaml"))
+    sources = load_sources_config(Path(CONFIG_PATH))
     print(sources)
     source_config = sources[id]
     run_ftp_source(id, source_config) # type: ignore
