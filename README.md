@@ -4,7 +4,7 @@ This repository contains the **Bronze Layer** of the data pipeline, responsible 
 
 ## Folder Structure
 
-```text
+<pre>
 ska-p/bronze_layer/
 ├── config/
 │   └── sources.yaml         # Central configuration for all data sources
@@ -18,8 +18,7 @@ ska-p/bronze_layer/
 ├── Dockerfile               # Container definition for Azure Batch tasks
 ├── Makefile                 # Shortcuts for building and pushing Docker images
 └── requirements.txt         # Python dependencies
-
-```
+</pre>
 
 ## Setup and Prerequisites
 
@@ -50,7 +49,6 @@ To interact with Azure services, you must define the following variables in a `.
 ```bash
 make build
 make push
-
 ```
 
 
@@ -90,7 +88,6 @@ This is the simplest type to configure. It uses a list of ontology identifiers t
 ols:
   - doid
   - new_ontology_id
-
 ```
 
 
