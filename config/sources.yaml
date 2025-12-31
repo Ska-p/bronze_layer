@@ -6,7 +6,8 @@ sources:
     mesh, 
     ordo, 
     mondo, 
-    go
+    go,
+    chebi
     ]
   
   ftp:
@@ -233,7 +234,7 @@ sources:
           exclude: ["_SUCCESS", "SUCCESS"]
           root: variant
 
-    chebi:
+    chebi_sql:
       - host: ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar
         file_rules:
           extensions: ["sql.zip"]
@@ -252,13 +253,6 @@ sources:
           name_contains: ["ontology-annotated-full"]
 
   api:
-
-    idc10:
-      version_func: ICD
-      base_url: https://data.bioontology.org/ontologies/ICD10CM/
-      api_key: 2498f9b7-cb35-474b-a95b-2e795af5e33a
-      operations:
-        - name: 
 
     quickgo:
       version_func: quickgo
@@ -319,6 +313,14 @@ sources:
           filename: hgnc_complete.json
   
   web:
+    chembl:
+      version_func: ChEMBLdb
+      pages:
+        - web_page: https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/
+          file_rules:
+            extensions: ["tar.gz"]
+            name_contains: ["chembl", "sqlite"]
+            name_contains_mode: and
 
     markerdb:
       version_func: MarkerDB
@@ -417,5 +419,5 @@ sources:
  
   bioportal: [
     ICD10CM,
-    ICD9CM,
+    ICD9CM
   ]

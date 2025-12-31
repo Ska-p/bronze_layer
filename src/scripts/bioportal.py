@@ -199,7 +199,7 @@ def run(ontology_id: str) -> None:
 
     if not should_run(ontology_id, version_marker, container):
         logger.info("%s ontology already up to date.", ontology_id.upper())
-        return
+        sys.exit(0)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 

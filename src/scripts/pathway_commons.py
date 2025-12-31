@@ -117,7 +117,7 @@ def download_latest_pc2_hgnc(
     
     if is_newer_version(remote=stored_version, local=date_str):
         logging.info("Pathway Commons data up to date.")
-        return
+        sys.exit(0)
     
     blob_client = container.get_blob_client(
         blob=blob_path,

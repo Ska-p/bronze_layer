@@ -47,19 +47,21 @@ from utils.page_utils import (
     MarkerDB_parse_version_from_page,
     FooDB_parse_version_from_page,
     DrugCentral_parse_version_from_page,
-    TIGA_parse_version_from_page
+    TIGA_parse_version_from_page,
+    ChEMBL_parse_version_from_page
 )
 
 # =========================
 # Version registry
 # =========================
 
-VERSION_FUNC_REGISTRY: Dict[str, Callable[[str, logging.Logger], str]] = {
-    "HPA": HPA_parse_version_from_page,
-    "MarkerDB": MarkerDB_parse_version_from_page,
-    "FooDB": FooDB_parse_version_from_page,
-    "DrugCentral": DrugCentral_parse_version_from_page,
-    "TIGA": TIGA_parse_version_from_page
+VERSION_FUNC_REGISTRY: Dict[str, Callable[[str, str, logging.Logger], str]] = {
+    # "HPA": HPA_parse_version_from_page,
+    # "MarkerDB": MarkerDB_parse_version_from_page,
+    # "FooDB": FooDB_parse_version_from_page,
+    # "DrugCentral": DrugCentral_parse_version_from_page,
+    # "TIGA": TIGA_parse_version_from_page,
+    "ChEMBLdb": ChEMBL_parse_version_from_page
 }
 
 # =========================
@@ -86,7 +88,7 @@ session.headers.update({
     "User-Agent": "bronze-layer-ingestion/1.0"
 })
 
-CHUNK_SIZE = 64 * 1024 * 1024
+CHUNK_SIZE = 8 * 1024 * 1024
 
 # =========================
 # Helpers
@@ -216,6 +218,7 @@ def main():
         version_func = VERSION_FUNC_REGISTRY[version_func_name]
         version = version_func(
             source_cfg["pages"][0]["web_page"],
+            source_cfg["pages"][0]["file_rules"]["name_contains"][0] if source_cfg["pages"][0]["file_rules"]["name_contains"][0] else "",
             logger
         )
     else:
@@ -224,7 +227,7 @@ def main():
     stored_version = extract_version(args.id, container, logger)
     if not is_newer_version(remote=version, local=stored_version):
         logger.info("%s already up to date.", args.id)
-        return
+        sys.exit(0)
 
     logger.info("New version detected for %s: %s", args.id, version)
 

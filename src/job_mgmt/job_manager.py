@@ -80,6 +80,11 @@ def enumerate_sources(sources: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
                 raise ValueError("custom must be a list")
             for source_id in payload:
                 yield group, source_id
+        elif group == "bioportal":
+            if not isinstance(payload, list):
+                raise ValueError("custom must be a list")
+            for source_id in payload:
+                yield group, source_id
         else:
             if not isinstance(payload, dict):
                 raise ValueError(f"{group} must be a mapping")

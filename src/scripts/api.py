@@ -137,7 +137,7 @@ def run_ingestion(source_id: str):
 
     if not is_newer_version(remote=version, local=stored_version):
         logger.info("%s already up to date.", args.id)
-        return
+        sys.exit(0)
 
     hosts = []
     list_of_files = []
