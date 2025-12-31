@@ -217,6 +217,72 @@ def HPA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
     logger.info("Detected HPA remote version %s", formatted_version)
     return formatted_version
 
+def ChEMBL_parse_version_from_page(
+    url: str, 
+    filename: str, 
+    logger: logging.Logger
+) -> str:
+    """
+    Extract the 'Last modified' date for a specific file from ChEMBL directory listing.
+    
+    Args:
+        url: URL of the ChEMBL directory listing page
+        filename: Name or partial name of the file to look for (e.g., 'chembl_36_sqlite')
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format
+        
+    Raises:
+        ValueError: If table structure is unexpected or file not found
+    """
+    logger.info("Fetching ChEMBL version for file '%s' from %s", filename, url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table (there's only one in directory listings)
+    table = soup.find("table")
+    if not table:
+        raise ValueError("ChEMBL: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("ChEMBL: table has insufficient rows.")
+    
+    # Find the row containing our filename
+    target_row = None
+    for row in rows:
+        # Look for <a> tag with matching filename
+        link = row.find("a")
+        if link and filename in link.get_text(strip=True):
+            target_row = row
+            break
+    
+    if not target_row:
+        raise ValueError(f"ChEMBL: file containing '{filename}' not found in directory listing.")
+    
+    # Extract all cells from the row
+    cells = target_row.find_all("td")
+    if len(cells) < 3:
+        raise ValueError(f"ChEMBL: row for '{filename}' has insufficient columns.")
+    
+    # Last modified is in the 3rd column (index 2)
+    raw_date = cells[2].get_text(strip=True)
+    
+    # Parse the date (format: "YYYY-MM-DD HH:MM")
+    try:
+        dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+        version = dt.strftime("%Y-%m-%d")
+    except ValueError as e:
+        raise ValueError(f"ChEMBL: could not parse date '{raw_date}': {e}")
+    
+    logger.info("Detected ChEMBL remote version %s for file '%s'", version, filename)
+    return version
+
 def MarkerDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
     logger.info("Fetching MarkerDB version from %s", url)
 

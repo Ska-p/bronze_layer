@@ -26,6 +26,9 @@ from bs4 import BeautifulSoup
 url = "https://markerdb.ca/downloads"
 url = "https://bioportal.bioontology.org/ontologies/ICD10CM?p=summary"
 url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar/"
+
+url = "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/"
+url = "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/"
 response = requests.get(url)
 html = response.text
 
