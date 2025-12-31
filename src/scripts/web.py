@@ -48,7 +48,12 @@ from utils.page_utils import (
     FooDB_parse_version_from_page,
     DrugCentral_parse_version_from_page,
     TIGA_parse_version_from_page,
-    ChEMBL_parse_version_from_page
+    ChEMBL_parse_version_from_page,
+    GWASCATALOG_parse_version_from_page,
+    ClinVar_parse_version_from_page,
+    ChEBI_SQL_parse_version_from_page,
+    OpenTargets_parse_version_from_page,
+    UniProt_parse_version_from_page
 )
 
 # =========================
@@ -56,12 +61,17 @@ from utils.page_utils import (
 # =========================
 
 VERSION_FUNC_REGISTRY: Dict[str, Callable[[str, str, logging.Logger], str]] = {
-    # "HPA": HPA_parse_version_from_page,
-    # "MarkerDB": MarkerDB_parse_version_from_page,
-    # "FooDB": FooDB_parse_version_from_page,
-    # "DrugCentral": DrugCentral_parse_version_from_page,
-    # "TIGA": TIGA_parse_version_from_page,
-    "ChEMBLdb": ChEMBL_parse_version_from_page
+    "HPA": HPA_parse_version_from_page,
+    "MarkerDB": MarkerDB_parse_version_from_page,
+    "FooDB": FooDB_parse_version_from_page,
+    "DrugCentral": DrugCentral_parse_version_from_page,
+    "TIGA": TIGA_parse_version_from_page,
+    "ChEMBLdb": ChEMBL_parse_version_from_page,
+    "gwas": GWASCATALOG_parse_version_from_page,
+    "clinvar": ClinVar_parse_version_from_page,
+    "ChEBI_SQL": ChEBI_SQL_parse_version_from_page,
+    "OpenTargets": OpenTargets_parse_version_from_page,
+    "UniProt": UniProt_parse_version_from_page
 }
 
 # =========================
@@ -105,21 +115,24 @@ def matches_rules(url: str, rules: dict) -> bool:
 
     if "name_contains" in rules:
         tokens = [t.lower() for t in rules["name_contains"]]
-        mode = rules.get("name_contains_mode", "or").lower()
+        
+        # Only apply name filtering if tokens list is not empty
+        if tokens:
+            mode = rules.get("name_contains_mode", "or").lower()
 
-        if mode == "and":
-            if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
-                return False
+            if mode == "and":
+                if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
+                    return False
 
-        elif mode == "or":
-            if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
-                return False
+            elif mode == "or":
+                if not any(token in filename for token in tokens) and not any(token in url for token in tokens):
+                    return False
 
-        else:
-            raise ValueError(
-                f"Invalid name_contains_mode '{mode}'. "
-                "Expected 'and' or 'or'."
-            )
+            else:
+                raise ValueError(
+                    f"Invalid name_contains_mode '{mode}'. "
+                    "Expected 'and' or 'or'."
+                )
 
     return True
 
@@ -216,9 +229,16 @@ def main():
             )
 
         version_func = VERSION_FUNC_REGISTRY[version_func_name]
+        
+        # Get filename from config or use empty string
+        first_page = source_cfg["pages"][0]
+        file_rules = first_page.get("file_rules", {})
+        name_contains = file_rules.get("name_contains", [])
+        filename = name_contains[0] if name_contains else ""
+        
         version = version_func(
-            source_cfg["pages"][0]["web_page"],
-            source_cfg["pages"][0]["file_rules"]["name_contains"][0] if source_cfg["pages"][0]["file_rules"]["name_contains"][0] else "",
+            first_page["web_page"],
+            filename,
             logger
         )
     else:

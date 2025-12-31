@@ -29,6 +29,14 @@ url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_alls
 
 url = "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/"
 url = "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/"
+
+url = "https://ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/"
+
+url = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/"
+
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar/"
+
+
 response = requests.get(url)
 html = response.text
 

@@ -41,12 +41,12 @@ def QUICKGO_version(logger: logging.Logger) -> str: # data passed as placeholder
 
     return version
 
-def TIGA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
+def TIGA_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
     """
-    Extract version from Apache directory listing by taking the
-    latest 'Last modified' timestamp among .tsv files.
+    Extract version from Apache directory listing by finding the 'Last modified' 
+    timestamp of the specified file.
     """
-    logger.info("Fetching TIGA version from %s", url)
+    logger.info("Fetching TIGA version for file '%s' from %s", filename, url)
 
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
@@ -57,8 +57,6 @@ def TIGA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
     if not rows:
         raise ValueError("TIGA: no rows found in directory listing.")
 
-    timestamps = []
-
     for row in rows:
         cols = row.find_all("td")
         if len(cols) < 3:
@@ -68,10 +66,10 @@ def TIGA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
         if not link:
             continue
 
-        filename = link.get_text(strip=True)
+        file_name = link.get_text(strip=True)
 
-        # Only consider TSV files
-        if not filename.lower().endswith(".tsv"):
+        # Match the specific filename we're looking for
+        if filename not in file_name:
             continue
 
         raw_ts = cols[2].get_text(strip=True)
@@ -81,26 +79,23 @@ def TIGA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
         try:
             # Format: YYYY-MM-DD HH:MM
             dt = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M")
-            timestamps.append(dt)
+            version = dt.strftime("%Y-%m-%d")
+            logger.info("Detected TIGA remote version %s for file '%s'", version, file_name)
+            return version
         except ValueError:
-            logger.warning("TIGA: skipping unparsable timestamp '%s'", raw_ts)
+            logger.warning("TIGA: could not parse timestamp '%s'", raw_ts)
+            continue
 
-    if not timestamps:
-        raise ValueError("TIGA: no valid TSV timestamps found.")
+    raise ValueError(f"TIGA: file containing '{filename}' not found in directory listing.")
 
-    latest = max(timestamps)
-    version = latest.strftime("%Y-%m-%d")
-
-    logger.info("Detected TIGA remote version %s", version)
-    return version
-
-def DrugCentral_parse_version_from_page(url: str, logger: logging.Logger) -> str:
+def DrugCentral_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
     """
     Extract DrugCentral version from dump filename:
     e.g. drugcentral.dump.11012023.sql.gz -> 2023-01-11
     """
     logger.info("Fetching DrugCentral version from %s", url)
-
+    import pdb
+    pdb.set_trace()
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
 
@@ -137,7 +132,7 @@ def DrugCentral_parse_version_from_page(url: str, logger: logging.Logger) -> str
         "(expected drugcentral.dump.<DDMMYYYY>.sql.gz)"
     )
 
-def FooDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
+def FooDB_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
     logger.info("Fetching FooDB version from %s", url)
 
     resp = requests.get(url, timeout=60)
@@ -148,8 +143,6 @@ def FooDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
     tables = soup.find_all("table", class_="table-standard")
     if not tables:
         raise ValueError("FooDB: no tables found on download page.")
-
-    dates = []
 
     for table in tables:
         thead = table.find("thead")
@@ -172,25 +165,26 @@ def FooDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
             if len(cells) <= date_idx:
                 continue
 
+            # Check if this row contains both filename AND 'mysql'
+            row_text = " ".join(cell.get_text(strip=True) for cell in cells).lower()
+            if filename.lower() not in row_text or "mysql" not in row_text:
+                continue
+
             raw_date = cells[date_idx].get_text(strip=True)
 
             try:
                 # Example: "April 7 2020", "October 13 2022"
                 dt = datetime.strptime(raw_date, "%B %d %Y")
-                dates.append(dt)
+                version = dt.strftime("%Y-%m-%d")
+                logger.info("Detected FooDB remote version %s", version)
+                return version
             except ValueError:
                 logger.warning("FooDB: skipping unparsable date '%s'", raw_date)
+                continue
 
-    if not dates:
-        raise ValueError("FooDB: no valid 'Date Added' values found.")
+    raise ValueError("FooDB: matching file not found in download table.")
 
-    latest = max(dates)
-    version = latest.strftime("%Y-%m-%d")
-
-    logger.info("Detected FooDB remote version %s", version)
-    return version
-
-def HPA_parse_version_from_page(url: str, logger: logging.Logger) -> str:
+def HPA_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
     logger.info("Fetching HPA version from %s", url)
 
     resp = requests.get(url, timeout=60)
@@ -283,7 +277,7 @@ def ChEMBL_parse_version_from_page(
     logger.info("Detected ChEMBL remote version %s for file '%s'", version, filename)
     return version
 
-def MarkerDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
+def MarkerDB_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
     logger.info("Fetching MarkerDB version from %s", url)
 
     resp = requests.get(url, timeout=60)
@@ -334,3 +328,327 @@ def MarkerDB_parse_version_from_page(url: str, logger: logging.Logger) -> str:
 
     logger.info("Detected MarkerDB remote version %s", version)
     return version
+
+def GWASCATALOG_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
+    """
+    Extract the 'Last modified' date for a specific file from GWAS Catalog directory listing.
+    
+    Args:
+        url: URL of the GWAS Catalog directory listing page
+        filename: Name or partial name of the file to look for (e.g., 'ontology-annotated-full')
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format
+        
+    Raises:
+        ValueError: If table structure is unexpected or file not found
+    """
+    logger.info("Fetching GWAS Catalog version from %s", url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table
+    table = soup.find("table")
+    if not table:
+        raise ValueError("GWAS Catalog: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("GWAS Catalog: table has insufficient rows.")
+    
+    # Find the row containing our filename
+    for row in rows:
+        # Look for <a> tag with matching filename
+        link = row.find("a")
+        if not link or filename not in link.get_text(strip=True):
+            continue
+        
+        # Extract all cells from the row
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+        
+        # Last modified is in the 3rd column (index 2)
+        raw_date = cells[2].get_text(strip=True)
+        
+        # Parse the date (format: "YYYY-MM-DD HH:MM")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+            version = dt.strftime("%Y-%m-%d")
+            logger.info("Detected GWAS Catalog remote version %s", version)
+            return version
+        except ValueError as e:
+            raise ValueError(f"GWAS Catalog: could not parse date '{raw_date}': {e}")
+    
+    raise ValueError("GWAS Catalog: matching file not found in directory listing.")
+
+def ClinVar_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
+    """
+    Extract the 'Last Modified' date for a specific file from ClinVar directory listing.
+    
+    Args:
+        url: URL of the ClinVar directory listing page
+        filename: Name or partial name of the file to look for (e.g., 'variant_summary')
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format
+        
+    Raises:
+        ValueError: If table structure is unexpected or file not found
+    """
+    logger.info("Fetching ClinVar version from %s", url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table
+    table = soup.find("table")
+    if not table:
+        raise ValueError("ClinVar: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("ClinVar: table has insufficient rows.")
+    
+    # Find the row containing our filename
+    for row in rows:
+        # Look for <a> tag with matching filename
+        link = row.find("a")
+        if not link or filename not in link.get_text(strip=True):
+            continue
+        
+        # Extract all cells from the row
+        cells = row.find_all("td")
+        if len(cells) < 4:
+            continue
+        
+        # Last Modified is in the 4th column (index 3)
+        raw_date = cells[3].get_text(strip=True)
+        if not raw_date:
+            continue
+        
+        # Parse the date (format: "YYYY-MM-DD HH:MM:SS")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M:%S")
+            version = dt.strftime("%Y-%m-%d")
+            logger.info("Detected ClinVar remote version %s", version)
+            return version
+        except ValueError as e:
+            raise ValueError(f"ClinVar: could not parse date '{raw_date}': {e}")
+    
+    raise ValueError("ClinVar: matching file not found in directory listing.")
+
+def UniProt_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
+    """
+    Extract the 'Last modified' date for UniProt .dat.gz files from directory listing.
+    Finds all .dat.gz files containing 'trembl' or 'sprot' and returns the latest timestamp.
+    
+    Args:
+        url: URL of the UniProt directory listing page
+        filename: Not used directly (checks for both trembl and sprot)
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format (latest among matching files)
+        
+    Raises:
+        ValueError: If table structure is unexpected or no matching files found
+    """
+    logger.info("Fetching UniProt version from %s", url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table
+    table = soup.find("table")
+    if not table:
+        raise ValueError("UniProt: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("UniProt: table has insufficient rows.")
+    
+    timestamps = []
+    
+    # Find all rows containing .dat.gz files with trembl or sprot
+    for row in rows:
+        link = row.find("a")
+        if not link:
+            continue
+        
+        file_name = link.get_text(strip=True).lower()
+        
+        # Check if file is .dat.gz and contains trembl or sprot
+        if not file_name.endswith(".dat.gz"):
+            continue
+        
+        if "trembl" not in file_name and "sprot" not in file_name:
+            continue
+        
+        # Extract all cells from the row
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+        
+        # Last modified is in the 3rd column (index 2)
+        raw_date = cells[2].get_text(strip=True)
+        if not raw_date:
+            continue
+        
+        # Parse the date (format: "YYYY-MM-DD HH:MM")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+            timestamps.append(dt)
+        except ValueError:
+            logger.warning("UniProt: could not parse timestamp '%s'", raw_date)
+            continue
+    
+    if not timestamps:
+        raise ValueError("UniProt: no .dat.gz files with 'trembl' or 'sprot' found in directory listing.")
+    
+    # Return the latest timestamp among matching files
+    latest = max(timestamps)
+    version = latest.strftime("%Y-%m-%d")
+    logger.info("Detected UniProt remote version %s", version)
+    return version
+
+def OpenTargets_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
+    """
+    Extract the 'Last modified' date of the 'output/' folder from OpenTargets directory listing.
+    
+    Args:
+        url: URL of the OpenTargets /latest/ directory listing page
+        filename: Not used (kept for signature consistency)
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format
+        
+    Raises:
+        ValueError: If table structure is unexpected or output folder not found
+    """
+    
+    url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/latest/"
+    
+    logger.info("Fetching OpenTargets version from %s", url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table
+    table = soup.find("table")
+    if not table:
+        raise ValueError("OpenTargets: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("OpenTargets: table has insufficient rows.")
+    
+    # Find the row containing the output/ folder
+    for row in rows:
+        link = row.find("a")
+        if not link:
+            continue
+        
+        folder_name = link.get_text(strip=True)
+        if folder_name != "output/":
+            continue
+        
+        # Extract all cells from the row
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+        
+        # Last modified is in the 3rd column (index 2)
+        raw_date = cells[2].get_text(strip=True)
+        if not raw_date:
+            continue
+        
+        # Parse the date (format: "YYYY-MM-DD HH:MM")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+            version = dt.strftime("%Y-%m-%d")
+            logger.info("Detected OpenTargets remote version %s", version)
+            return version
+        except ValueError as e:
+            raise ValueError(f"OpenTargets: could not parse date '{raw_date}': {e}")
+    
+    raise ValueError("OpenTargets: 'output/' folder not found in directory listing.")
+
+def ChEBI_SQL_parse_version_from_page(url: str, filename: str, logger: logging.Logger) -> str:
+    """
+    Extract the 'Last modified' date from the first .sql.zip file in ChEBI directory listing.
+    
+    Args:
+        url: URL of the ChEBI directory listing page
+        filename: Not used (kept for signature consistency)
+        logger: Logger instance for logging
+        
+    Returns:
+        Version string in YYYY-MM-DD format
+        
+    Raises:
+        ValueError: If table structure is unexpected or no .sql.zip files found
+    """
+    logger.info("Fetching ChEBI SQL version from %s", url)
+    
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+    
+    soup = BeautifulSoup(resp.text, "html.parser")
+    
+    # Find the main table
+    table = soup.find("table")
+    if not table:
+        raise ValueError("ChEBI SQL: could not find directory listing table.")
+    
+    # Find all table rows
+    rows = table.find_all("tr")
+    if len(rows) < 2:  # Need at least header + one data row
+        raise ValueError("ChEBI SQL: table has insufficient rows.")
+    
+    # Find the first .sql.zip file
+    for row in rows:
+        link = row.find("a")
+        if not link:
+            continue
+        
+        file_name = link.get_text(strip=True)
+        if not file_name.endswith(".sql.zip"):
+            continue
+        
+        # Extract all cells from the row
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+        
+        # Last modified is in the 3rd column (index 2)
+        raw_date = cells[2].get_text(strip=True)
+        if not raw_date:
+            continue
+        
+        # Parse the date (format: "YYYY-MM-DD HH:MM")
+        try:
+            dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+            version = dt.strftime("%Y-%m-%d")
+            logger.info("Detected ChEBI SQL remote version %s", version)
+            return version
+        except ValueError as e:
+            raise ValueError(f"ChEBI SQL: could not parse date '{raw_date}': {e}")
+    
+    raise ValueError("ChEBI SQL: no .sql.zip files found in directory listing.")
