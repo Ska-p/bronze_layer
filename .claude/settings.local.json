@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(conda run -n bronze-data-ingestion python -c:*)"
+    ]
+  }
+}

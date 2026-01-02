@@ -7,8 +7,7 @@ sources:
     ordo, 
     mondo, 
     go,
-    chebi
-    ]
+    chebi ]
 
   api:
 
@@ -384,9 +383,8 @@ sources:
             extensions: [json]
             name_contains: ["findPathwaysByXref"]
 
-  custom: [
-    pathway_commons
-  ]
+  custom: [ 
+    pathway_commons  ]
  
   bioportal: [
     ICD10CM,
