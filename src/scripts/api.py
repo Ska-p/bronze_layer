@@ -30,7 +30,7 @@ from utils.versioning import (
     extract_version
 )
 
-from extractor import (
+from utils.extractor import (
     extract
 )
 
@@ -176,12 +176,6 @@ def run_ingestion(source_id: str):
         container=container,
         source_id=source_id,
         version=version,
-        logger=logger
-    )
-    
-    extract(
-        source_id=source_id,
-        container=container,
         logger=logger
     )
 

@@ -17,7 +17,7 @@ from env.config import (
     BATCH_ACCOUNT_URL
     )
 
-TARGET_POOL_ID = "bronze_pool"  # change to your pool id
+TARGET_POOL_ID = "bronze"  # change to your pool id
 
 def main():
     creds = SharedKeyCredentials(BATCH_ACCOUNT_NAME, BATCH_ACCOUNT_KEY)

@@ -94,8 +94,6 @@ def DrugCentral_parse_version_from_page(url: str, filename: str, logger: logging
     e.g. drugcentral.dump.11012023.sql.gz -> 2023-01-11
     """
     logger.info("Fetching DrugCentral version from %s", url)
-    import pdb
-    pdb.set_trace()
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
 

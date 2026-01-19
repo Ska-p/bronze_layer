@@ -26,10 +26,6 @@ if str(SRC_DIR) not in sys.path:
     
 from env.config import BLOB_CONNECTION_STRING, BRONZE_CONTAINER
 
-from extractor import (
-    extract
-)
-
 from utils.versioning import (
     update_latest_folder,
     update_manifest,
@@ -55,9 +51,6 @@ def download_latest_pc2_hgnc(
 
     session = requests.Session()
 
-    # ------------------------------------------------------------------
-    # 1) Discover candidate versions (HTML used only for link discovery)
-    # ------------------------------------------------------------------
     resp = session.get(PC2_BASE_URL, timeout=timeout)
     resp.raise_for_status()
 
@@ -72,9 +65,6 @@ def download_latest_pc2_hgnc(
     if not versions:
         raise RuntimeError("No PC2 version folders found")
 
-    # ------------------------------------------------------------------
-    # 2) Probe each version via HEAD and extract Last-Modified
-    # ------------------------------------------------------------------
     best_version: Optional[str] = None
     best_last_modified: Optional[datetime] = None
     best_file_url: Optional[str] = None
@@ -149,11 +139,6 @@ def download_latest_pc2_hgnc(
         version=datetime.strftime(best_last_modified, "%Y-%m-%d"), # type: ignore
         logger=logger
     )
-
-    extract(
-        source_id="pathway_commons",
-        container=container,
-        logger=logger
-    )
+    
 if __name__=="__main__":
     download_latest_pc2_hgnc()

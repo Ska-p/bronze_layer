@@ -35,7 +35,7 @@ from env.config import (
 # Internal utilities
 # ==============================================================================
 
-from extractor import extract
+from utils.extractor import extract
 
 from utils.versioning import (
     extract_version,
@@ -225,12 +225,6 @@ def run(ontology_id: str) -> None:
         container=container,
         source_id=ontology_id,
         version=version_marker,
-        logger=logger
-    )
-
-    extract(
-        source_id=ontology_id,
-        container=container,
         logger=logger
     )
 

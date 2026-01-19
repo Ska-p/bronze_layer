@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 import logging
 import sys
-import time
-import yaml
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -12,6 +10,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.append(str(SRC_ROOT))
 
+import yaml
 from azure.batch import BatchServiceClient
 from azure.batch.batch_auth import SharedKeyCredentials
 from azure.batch import models as batch_models
@@ -27,7 +26,7 @@ from env.config import (
 
 JOB_ID = os.environ["AZ_BATCH_JOB_ID"]
 
-def load_sources_config(config_path: Path = SOURCES_CONFIG_PATH) -> Dict[str, Any]:
+def load_sources_config(config_path: Path = SOURCES_CONFIG_PATH,) -> Dict[str, Any]:
     if not config_path.exists():
         raise FileNotFoundError(f"Sources configuration not found at {config_path}")
 
@@ -40,37 +39,10 @@ def load_sources_config(config_path: Path = SOURCES_CONFIG_PATH) -> Dict[str, An
     return sources
 
 def build_command_line(group: str, source_id: str) -> str:
-    if group == "custom":
-        return f"python src/scripts/{source_id}.py"
-    else:
-        return f"python src/scripts/{group}.py --id {source_id}"
-
-def build_extractor_command_line(group: str, source_id: str) -> str:
     return f"python src/utils/extractor.py --id {source_id}"
 
 def build_task(group: str, source_id: str) -> batch_models.TaskAddParameter:
     command_line = build_command_line(group, source_id)
-
-    container_settings = batch_models.TaskContainerSettings(
-        image_name=BRONZE_CONTAINER_IMAGE,
-        container_run_options="--workdir /app",
-        working_directory=batch_models.ContainerWorkingDirectory.container_image_default,
-    )
-
-    return batch_models.TaskAddParameter(
-        id=f"{group}_{source_id}",
-        command_line=command_line,
-        container_settings=container_settings,
-        user_identity=batch_models.UserIdentity(
-            auto_user=batch_models.AutoUserSpecification(
-                scope="pool",
-                elevation_level=batch_models.ElevationLevel.non_admin,
-            )
-        ),
-    )
-    
-def build_extractor_task(group: str, source_id: str) -> batch_models.TaskAddParameter:
-    command_line = build_extractor_command_line(group, source_id)
 
     container_settings = batch_models.TaskContainerSettings(
         image_name=BRONZE_CONTAINER_IMAGE,
@@ -152,68 +124,11 @@ def create_batch_client() -> BatchServiceClient:
     )
     return BatchServiceClient(credentials, batch_url=BATCH_ACCOUNT_URL)
 
-# def main() -> None:
-#     sources = load_sources_config()
-#     client = create_batch_client()
-
-#     tasks = (build_task(group, source_id) for group, source_id in enumerate_sources(sources))
-#     submit_tasks(client, tasks)
-#     while True:
-#         all_tasks = list(client.task.list(JOB_ID)) # get list of all tasks in Job
-#         dwnld_tasks = [t for t in all_tasks if not 'jobmanager' in t.id] # count job and exclude job manger from counting 
-#         completed_dnwld = sum(1 for t in dwnld_tasks if t.state == TaskState.completed) # check completed downloads
-#         #counts = client.job.get_task_counts(JOB_ID)
-#         if completed_dnwld >= len(dwnld_tasks): 
-#             break
-#         time.sleep(10)
-    
-#     extractor_task = (build_extractor_task(group, source_id) for group, source_id in enumerate_sources(sources))
-#     submit_tasks(client, extractor_task)
-#     while True:
-#         all_tasks = list(client.task.list(JOB_ID))
-#         ext_tasks = [t for t in all_tasks if 'extractor' in t.id]    
-#         completed_ext = sum(1 for t in ext_tasks if t.state == TaskState.completed)
-#         if completed_ext >= len(ext_tasks):
-#             break
-#         time.sleep(10)
-
 def main() -> None:
     sources = load_sources_config()
     client = create_batch_client()
-
-    # Download Phase
-    download_tasks = [
-        build_task(group, source_id)
-        for group, source_id in enumerate_sources(sources)
-    ]
-    submit_tasks(client, download_tasks)
-    download_ids = {t.id for t in download_tasks}
-
-    while True:
-        all_tasks = list(client.task.list(JOB_ID))
-        dwnld = [t for t in all_tasks if t.id in download_ids]
-
-        if dwnld and all(t.state == batch_models.TaskState.completed for t in dwnld):
-            break
-
-        time.sleep(10)
-
-    # Extraction Phase
-    extractor_tasks = [
-        build_extractor_task(group, source_id)
-        for group, source_id in enumerate_sources(sources)
-    ]
-    submit_tasks(client, extractor_tasks)
-    extractor_ids = {t.id for t in extractor_tasks}
-
-    while True:
-        all_tasks = list(client.task.list(JOB_ID))
-        ext = [t for t in all_tasks if t.id in extractor_ids]
-
-        if ext and all(t.state == batch_models.TaskState.completed for t in ext):
-            break
-
-        time.sleep(10)
+    tasks = (build_task(group, source_id) for group, source_id in enumerate_sources(sources))
+    submit_tasks(client, tasks)
 
 if __name__ == "__main__":
     main()

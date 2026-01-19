@@ -26,16 +26,12 @@ from bs4 import BeautifulSoup
 url = "https://markerdb.ca/downloads"
 url = "https://bioportal.bioontology.org/ontologies/ICD10CM?p=summary"
 url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar/"
-
 url = "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/"
 url = "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/"
-
 url = "https://ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/"
-
 url = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/"
-
 url = "https://ftp.ebi.ac.uk/pub/databases/chebi/generic_dumps/generic_dump_allstar/"
-
+url = "https://www.nlm.nih.gov/research/umls/rxnorm/docs/rxnormfiles.html?_gl=1*1a3rnaa*_ga*MjMwNzM5NzQ5LjE3NjQwMjI0ODU.*_ga_7147EPK006*czE3Njg4MTI1NjYkbzExJGcxJHQxNzY4ODEyODA5JGozNSRsMCRoMA..*_ga_P1FPTH9PL4*czE3Njg4MTI1NjYkbzExJGcxJHQxNzY4ODEyODA5JGozNSRsMCRoMA.."
 
 response = requests.get(url)
 html = response.text

@@ -29,7 +29,7 @@ from utils.data import (
     download_owl
 )
 
-from extractor import (
+from utils.extractor import (
     extract
 )
 
@@ -104,12 +104,6 @@ def run(ontology_id: str) -> None:
             source_id=ontology_id,
             version=version_marker,
             logger=logger)
-        
-        extract(
-            source_id=ontology_id,
-            container=container,
-            logger=logger
-        )
         
         logger.info(f"{ontology_id.upper()} ontology sync completed successfully!")
     else:

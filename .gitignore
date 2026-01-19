@@ -38,5 +38,5 @@ env/
 .vscode/
 .idea/
 
-# Cluade
-CLAUDE.md
+# folders
+src/test_scripts/

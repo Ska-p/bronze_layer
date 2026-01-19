@@ -10,18 +10,17 @@ sources:
     chebi ]
 
   api:
-
     quickgo:
       version_func: quickgo
       base_url: https://www.ebi.ac.uk/QuickGO/services/
       operations: 
         - name: annotation/downloadSearch
-          filename: "quickgo_annotations.gpad"
+          filename: "quickgo_annotations.tsv"
           params:
             taxonId: "9606"
             taxonUsage: "descendants"
           headers:
-            Accept: text/gpad
+            Accept: text/tsv
   
     clinpgx:
       base_url: https://api.clinpgx.org/v1/download/file/data/
@@ -71,15 +70,15 @@ sources:
   
   web:
 
-    uniprot:
-      version_func: UniProt
-      pages:
-        - web_page: https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/
-          tag: a
-          file_rules:
-            extensions: ["dat.gz"]
-            name_contains: ["trembl", "sprot"]
-            name_contains_mode: or
+    # uniprot:
+    #   version_func: UniProt
+    #   pages:
+    #     - web_page: https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/
+    #       tag: a
+    #       file_rules:
+    #         extensions: ["dat.gz"]
+    #         name_contains: ["trembl", "sprot"]
+    #         name_contains_mode: or
 
     opentarget:
       version_func: OpenTargets
@@ -384,7 +383,10 @@ sources:
             name_contains: ["findPathwaysByXref"]
 
   custom: [ 
-    pathway_commons  ]
+    pathway_commons,
+    icd10,
+    icd11,
+    rxnorm  ]
  
   bioportal: [
     ICD10CM,

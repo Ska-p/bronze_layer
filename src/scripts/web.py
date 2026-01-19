@@ -40,7 +40,7 @@ from env.config import (
     BLOB_CONNECTION_STRING
 )
 
-from extractor import (
+from utils.extractor import (
     extract
 )
 
@@ -363,13 +363,6 @@ def main():
         version=version,
         logger=logger
     )
-
-    extract(
-        source_id=args.id,
-        container=container,
-        logger=logger
-    )
-
 
 if __name__ == "__main__":
     main()

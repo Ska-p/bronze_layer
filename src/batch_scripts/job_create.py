@@ -19,8 +19,8 @@ from env.config import (
     BATCH_ACCOUNT_URL,
 )
 
-POOL_ID = "bronze_pool"
-SCHEDULE_ID = "data_sources_download"
+POOL_ID = "bronze"
+SCHEDULE_ID = "download_and_extraction"
 CONTAINER_IMAGE = "dompedatafusiontest.azurecr.io/bronze_layer:latest"
 JOB_MANAGER_COMMAND = "python src/job_manager/job_manager.py"
 JOB_MANAGER_TASK_ID = "jobmanager"
@@ -43,7 +43,7 @@ def main():
             user_identity=batch_models.UserIdentity(
                 auto_user=batch_models.AutoUserSpecification(
                     scope="pool",
-                    elevation_level=batch_models.ElevationLevel.non_admin
+                    elevation_level=batch_models.ElevationLevel.admin
                 )
             ),
             kill_job_on_completion=True
@@ -62,7 +62,7 @@ def main():
     )
 
     client.job_schedule.add(job_schedule)
-    print(f"Created job schedule '{SCHEDULE_ID}' every 2 minutes on pool '{POOL_ID}'")
+    print(f"Created job schedule '{SCHEDULE_ID}' every 5 minutes on pool '{POOL_ID}'")
 
 if __name__ == "__main__":
     main()
